@@ -554,47 +554,8 @@ def main(stdscr):
                 import shutil
                 is_frozen = getattr(sys, 'frozen', False)
                 if is_frozen:
-                    # Running as exe
-                    exe_path = sys.executable
-                    update_url = f"http://{server_ip}:8080/UPDATE/Client.exe"
-                    with lock:
-                        chat_win.addstr(f"\nChecking for updates at {update_url}...\n", curses.A_BOLD)
-                        chat_win.refresh()
-                    # Download new exe to temp file
-                    import tempfile
-                    tmp_fd, tmp_path = tempfile.mkstemp(suffix='.exe')
-                    os.close(tmp_fd)
-                    try:
-                        with urllib.request.urlopen(update_url) as response, open(tmp_path, 'wb') as out_file:
-                            shutil.copyfileobj(response, out_file)
-                        # Optionally, check version string in exe (skip for now)
-                        # Replace current exe
-                        bak_path = exe_path + ".bak"
-                        if os.path.exists(bak_path):
-                            os.remove(bak_path)
-                        os.rename(exe_path, bak_path)
-                        shutil.move(tmp_path, exe_path)
-                        with lock:
-                            chat_win.addstr("Update complete. Restarting...\n", curses.A_BOLD)
-                            chat_win.refresh()
-                        stop_event.set()
-                        sock.close()
-                        # Relaunch exe
-                        if platform.system() == "Windows":
-                            os.startfile(exe_path)
-                        else:
-                            subprocess.Popen([exe_path])
-                        os._exit(0)
-                    except Exception as e:
-                        with lock:
-                            chat_win.addstr(f"Update failed: {e}\n", curses.A_BOLD)
-                            chat_win.refresh()
-                        if os.path.exists(tmp_path):
-                            os.remove(tmp_path)
-                    continue
-                else:
                     # Running as .py
-                    update_url = f"http://{server_ip}:8080/UPDATE/Client.py"
+                    update_url = f"https://github.com/sirpatch/Lan-Communicator/blob/main/Client.py"
                     with lock:
                         chat_win.addstr(f"\nChecking for updates at {update_url}...\n", curses.A_BOLD)
                         chat_win.refresh()

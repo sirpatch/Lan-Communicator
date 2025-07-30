@@ -2,13 +2,6 @@ SERVER_VERSION = "0.0.2.2"
 
 import http.server
 import socketserver
-def start_simple_website():
-    # Serve files from the current directory on port 8081
-    PORT = 8081
-    Handler = http.server.SimpleHTTPRequestHandler
-    httpd = socketserver.TCPServer(("", PORT), Handler)
-    print(f"[INFO] [WebServer] Serving website at http://{HOST}:{PORT}/ (LAN accessible)")
-    threading.Thread(target=httpd.serve_forever, daemon=True).start()
 import socket
 import threading
 import http.server
@@ -320,7 +313,7 @@ def server_console():
     while True:
         cmd = input()
         if cmd.startswith("/autoupdate"):
-            update_url = f"http://{HOST}:8080/UPDATE/Client.py"
+            update_url = f"https://github.com/sirpatch/Lan-Communicator/blob/main/Client.py"
             print(f"[INFO] Sent auto-update command with URL: {update_url}")
             broadcast(f"SERVER> AUTOUPDATE: {update_url}\n".encode('utf-8'))
         elif cmd.startswith("/msg "):
@@ -378,128 +371,3 @@ def server_console():
             os.execv(sys.executable, [sys.executable] + sys.argv)
         else:
             print("[INFO] Commands: /msg <text>, /block <nickname>, /banip <ip>, /unblock <nickname>, /unbanip <ip>, /list, /blocked, /banned, /quit, /restart")
-
-def start_update_web_server():
-    PORT = 8080  # You can change this port if needed
-    Handler = http.server.SimpleHTTPRequestHandler
-    httpd = socketserver.TCPServer(("", PORT), Handler)
-    print(f"[INFO] [UpdateServer] Serving updates at http://{HOST}:{PORT}/UPDATE/Client.py")
-    threading.Thread(target=httpd.serve_forever, daemon=True).start()
-
-def main():
-    start_simple_website()
-    start_update_web_server()
-
-    # --- Flask backend for PATCH.NET site (integrated) ---
-    from flask import Flask, request, session, jsonify, send_from_directory
-    from werkzeug.security import generate_password_hash, check_password_hash
-    import secrets
-
-    flask_app = Flask(__name__)
-    flask_app.secret_key = secrets.token_hex(32)
-
-    # User database: username -> password hash
-    USERS = {
-        # Example: 'admin': 'pbkdf2:sha256:...' (replace with real hashes)
-        'sirpatch': 'pbkdf2:sha256:600000$w8...REPLACE_THIS...',
-        # Add more users as needed
-    }
-
-    @flask_app.route('/login', methods=['GET', 'POST'])
-    def login():
-        if request.method == 'POST':
-            data = request.get_json()
-            username = data.get('username', '').strip()
-            password = data.get('password', '')
-            print(f"[Flask] Login attempt: {username}")
-            if username in USERS:
-                hash = USERS[username]
-                if check_password_hash(hash, password):
-                    session['user'] = username
-                    print(f"[Flask] Login success: {username}")
-                    return jsonify({'success': True, 'message': 'Login successful.'})
-                else:
-                    print(f"[Flask] Invalid password for {username}")
-            else:
-                print(f"[Flask] Invalid username: {username}")
-            return jsonify({'success': False, 'message': 'Invalid username or password.'}), 401
-        # GET: serve static login.html
-        return send_from_directory('.', 'login.html')
-
-    @flask_app.route('/logout', methods=['POST'])
-    def logout():
-        session.pop('user', None)
-        return jsonify({'success': True, 'message': 'Logged out.'})
-
-    @flask_app.route('/manage', methods=['GET'])
-    def manage():
-        if 'user' not in session:
-            return jsonify({'success': False, 'message': 'Not logged in.'}), 401
-        # Example: return some management info
-        return jsonify({'success': True, 'user': session['user']})
-
-    @flask_app.route('/<path:path>')
-    def static_files(path):
-        # Serve other static files (html, js, css)
-        return send_from_directory('.', path)
-
-    def run_flask():
-        flask_app.run(host=HOST, port=5000, debug=False, use_reloader=False)
-
-    threading.Thread(target=run_flask, daemon=True).start()
-    print(f"[INFO] Flask backend running at http://{HOST}:5000/")
-
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server_socket.bind((HOST, PORT))
-    server_socket.listen()
-    print(f"[INFO] Server listening on {HOST}:{PORT}")
-
-    threading.Thread(target=server_console, daemon=True).start()
-
-    try:
-        while True:
-            client_socket, address = server_socket.accept()
-            clients.append(client_socket)
-            threading.Thread(target=handle_client, args=(client_socket, address), daemon=True).start()
-    except KeyboardInterrupt:
-        print("[INFO] Server shutting down.")
-        broadcast(b"SERVER> Server is shutting down.\n")
-    finally:
-        server_socket.close()
-
-if __name__ == "__main__":
-    import re
-    def extract_version(filepath):
-        try:
-            with open(filepath, encoding="utf-8") as f:
-                for line in f:
-                    m = re.search(r'CLIENT_VERSION\s*=\s*"([^"]+)"', line)
-                    if m:
-                        return m.group(1)
-        except Exception:
-            return None
-        return None
-
-    def update_html(client_version, server_version, html_path):
-        try:
-            with open(html_path, encoding="utf-8") as f:
-                html = f.read()
-            html = re.sub(r'(Download Client.py</a>\s*<div[^>]*>Version: )[^<]+', f'\\1{client_version}', html)
-            html = re.sub(r'(Download Server.py</a>\s*<div[^>]*>Version: )[^<]+', f'\\1{server_version}', html)
-            with open(html_path, "w", encoding="utf-8") as f:
-                f.write(html)
-        except Exception as e:
-            print(f"[WARN] Could not update communicator.html: {e}")
-
-    def auto_update_versions():
-        import time
-        while True:
-            client_version = extract_version("Client.py")
-            server_version = extract_version("Server.py")
-            if client_version and server_version:
-                update_html(client_version, server_version, "communicator.html")
-            time.sleep(20)
-
-    threading.Thread(target=auto_update_versions, daemon=True).start()
-    main()
