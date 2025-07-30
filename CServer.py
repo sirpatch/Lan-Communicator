@@ -371,3 +371,20 @@ def server_console():
             os.execv(sys.executable, [sys.executable] + sys.argv)
         else:
             print("[INFO] Commands: /msg <text>, /block <nickname>, /banip <ip>, /unblock <nickname>, /unbanip <ip>, /list, /blocked, /banned, /quit, /restart")
+
+if __name__ == "__main__":
+    print(f"[INFO] Communicator Server v{SERVER_VERSION} starting on {HOST}:{PORT}")
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server_socket.bind((HOST, PORT))
+    server_socket.listen(100)
+    threading.Thread(target=server_console, daemon=True).start()
+    try:
+        while True:
+            client_socket, address = server_socket.accept()
+            clients.append(client_socket)
+            threading.Thread(target=handle_client, args=(client_socket, address), daemon=True).start()
+    except KeyboardInterrupt:
+        print("[INFO] Server shutting down.")
+    finally:
+        server_socket.close()
