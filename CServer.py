@@ -313,9 +313,30 @@ def server_console():
     while True:
         cmd = input()
         if cmd.startswith("/autoupdate"):
-            update_url = f"https://github.com/sirpatch/Lan-Communicator/blob/main/Client.py"
-            print(f"[INFO] Sent auto-update command with URL: {update_url}")
-            broadcast(f"SERVER> AUTOUPDATE: {update_url}\n".encode('utf-8'))
+            import requests
+            github_url = "https://raw.githubusercontent.com/sirpatch/Lan-Communicator/main/CServer.py"
+            try:
+                print("[INFO] Checking for updates...")
+                resp = requests.get(github_url, timeout=10)
+                if resp.status_code == 200:
+                    import re
+                    m = re.search(r'SERVER_VERSION\s*=\s*"([^"]+)"', resp.text)
+                    if m:
+                        remote_version = m.group(1)
+                        print(f"[INFO] Remote version: {remote_version}")
+                        if remote_version != SERVER_VERSION:
+                            print(f"[INFO] Newer version found: {remote_version}. Downloading...")
+                            with open(__file__, "w", encoding="utf-8") as f:
+                                f.write(resp.text)
+                            print("[INFO] Update complete. Please restart the server.")
+                        else:
+                            print("[INFO] Already up to date.")
+                    else:
+                        print("[ERROR] Could not find version in remote file.")
+                else:
+                    print(f"[ERROR] Failed to fetch remote file. Status: {resp.status_code}")
+            except Exception as e:
+                print(f"[ERROR] Update failed: {e}")
         elif cmd.startswith("/msg "):
             msg = cmd[5:].strip()
             print(f"[INFO] SERVER> {msg}")
